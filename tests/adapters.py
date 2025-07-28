@@ -593,7 +593,8 @@ def run_train_bpe(
                 Merges are ordered by order of creation.
     """
     # init the vocabulary bytes
-    vocab = {i: bytes([i]) for i in range(vocab_size)} 
+    INIT_VOCAB_SIZE = 256  # initial vocabulary size
+    vocab = {i: bytes([i]) for i in range(INIT_VOCAB_SIZE)} 
     # pre-tokenization
     with open(input_path, "r", encoding="utf-8") as f:
         # read the entire file as text
@@ -659,9 +660,12 @@ def run_train_bpe(
             new_vocab[new_token_tuple] += freq
         return new_vocab
     
-    print("Initial vocabulary size:", len(tupled_byte_token_frequency))
-    merge_round = 5
-    while merge_round > 0 and len(tupled_byte_token_frequency) > 1:
+    # print("Initial vocabulary size:", len(tupled_byte_token_frequency))
+    # merge the most frequent pairs until we reach the desired vocabulary size
+    
+    merges = [] # list to store the merges
+    
+    while len(vocab) < vocab_size:
         # get the stats of the tupled byte token frequency
         pairs = get_stats(tupled_byte_token_frequency)
         # get the max pair 
@@ -672,9 +676,10 @@ def run_train_bpe(
         max_pair = max(pairs, key=pairs.get)
         # merge the max pair
         tupled_byte_token_frequency = merge_tokens(tupled_byte_token_frequency, max_pair)
-        merge_round -= 1
-
-        print("max pair:", max_pair, "frequency:", pairs[max_pair])
-        print("output vocabulary size:", len(tupled_byte_token_frequency))
+        merges.append(max_pair)
+        vocab[len(vocab)] = b"".join(max_pair) # append new token in the vocab
     
-    return vocab, []  # Placeholder for merges, as the implementation is not provided
+    # print("Final vocabulary size:", len(vocab))
+    # print("Final merges:", merges[:10])  # print first 10 merges for brevity
+
+    return vocab, merges  # Placeholder for merges, as the implementation is not provided
