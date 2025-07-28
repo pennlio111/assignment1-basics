@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import collections
 import os
 import regex as re
+
+from collections import defaultdict
 from typing import IO, Any, BinaryIO
 from collections.abc import Iterable
 from jaxtyping import Float, Int
@@ -609,7 +610,7 @@ def run_train_bpe(
     # map the pre-tokens to bytes (tokens)
     pre_tokens_in_byte = [pre_token.encode("utf-8") for pre_token in combined_pre_tokens]
     
-    pre_token_frequency = collections.defaultdict(int)
+    pre_token_frequency = defaultdict(int)
     for byte_token in pre_tokens_in_byte:
         pre_token_frequency[byte_token] += 1
     
@@ -632,7 +633,7 @@ def run_train_bpe(
     
     # iterate thru the adjacent byte tokens and merge them
     def get_stats(vocab): 
-        pairs = collections.defaultdict(int) 
+        pairs = defaultdict(int) 
         for symbols, freq in vocab.items(): 
             for i in range(len(symbols)-1): 
                 pairs[symbols[i],symbols[i+1]] += freq
@@ -640,7 +641,7 @@ def run_train_bpe(
     
     def merge_tokens(vocab, pair): 
         # this is the learning/training process for the BPE tokenizer
-        new_vocab = {} # to store the new vocabulary
+        new_vocab = defaultdict(int)
         """
         LEARNING: 
         1. operate with b"" as prefix for bytes strings, instead of str, since the tokens are in bytes
@@ -655,17 +656,25 @@ def run_train_bpe(
             new_token_str = p.sub(replacement, token_str)
             # split the new token string into a tuple of bytes
             new_token_tuple = tuple(new_token_str.split(b" "))
-            new_vocab[new_token_tuple] = freq
+            new_vocab[new_token_tuple] += freq
         return new_vocab
+    
     print("Initial vocabulary size:", len(tupled_byte_token_frequency))
     merge_round = 5
     while merge_round > 0 and len(tupled_byte_token_frequency) > 1:
         # get the stats of the tupled byte token frequency
         pairs = get_stats(tupled_byte_token_frequency)
         # get the max pair 
+        """
+        LEARNING:
+        1. max/min with key= is to extract the comparision key from the iterable, in this case, the frequency of the pairs
+        """
         max_pair = max(pairs, key=pairs.get)
         # merge the max pair
         tupled_byte_token_frequency = merge_tokens(tupled_byte_token_frequency, max_pair)
         merge_round -= 1
-    print("Final vocabulary size:", len(tupled_byte_token_frequency))
+
+        print("max pair:", max_pair, "frequency:", pairs[max_pair])
+        print("output vocabulary size:", len(tupled_byte_token_frequency))
+    
     return vocab, []  # Placeholder for merges, as the implementation is not provided
