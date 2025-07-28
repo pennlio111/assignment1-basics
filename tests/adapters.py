@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import collections
 import os
+import regex as re
 from typing import IO, Any, BinaryIO
 from collections.abc import Iterable
 from jaxtyping import Float, Int
@@ -588,4 +590,81 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+    # init the vocabulary bytes
+    vocab = {i: bytes([i]) for i in range(vocab_size)} 
+    # pre-tokenization
+    with open(input_path, "r", encoding="utf-8") as f:
+        # read the entire file as text
+        raw_text = f.read()
+    # split the text into chunks based on the special tokens
+    chunks = re.split("|".join(map(re.escape, special_tokens)), raw_text)
+    # pre-tokenize each chunk
+    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+    combined_pre_tokens = []
+    for chunk in chunks:
+        pre_tokens = re.findall(PAT, chunk)
+        combined_pre_tokens.extend(pre_tokens)
+    
+    # map the pre-tokens to bytes (tokens)
+    pre_tokens_in_byte = [pre_token.encode("utf-8") for pre_token in combined_pre_tokens]
+    
+    pre_token_frequency = collections.defaultdict(int)
+    for byte_token in pre_tokens_in_byte:
+        pre_token_frequency[byte_token] += 1
+    
+    """
+    output pre-tokens:
+    [b'u', b' don', b"'t", b' have', b' to', b' be', b' scared', b' of', b' the', b' loud']
+    """
+
+    # tuple the tokens with their frequencies
+    tupled_byte_token_frequency = {}
+    for pre_token, frequency in pre_token_frequency.items():
+        tupled_byte_tokens = tuple(bytes([b]) for b in pre_token) # must wrap the bytes in a tuple
+        tupled_byte_token_frequency[tupled_byte_tokens] = frequency
+    
+    """
+    output tupled byte tokens:
+    [(b'u',), (b' ', b'd', b'o', b'n'), (b"'", b't'), (b' ', b'h', b'a', b'v', b'e'), (b' ', b't', b'o')]
+    this is the starting point for the BPE merges
+    """
+    
+    # iterate thru the adjacent byte tokens and merge them
+    def get_stats(vocab): 
+        pairs = collections.defaultdict(int) 
+        for symbols, freq in vocab.items(): 
+            for i in range(len(symbols)-1): 
+                pairs[symbols[i],symbols[i+1]] += freq
+        return pairs
+    
+    def merge_tokens(vocab, pair): 
+        # this is the learning/training process for the BPE tokenizer
+        new_vocab = {} # to store the new vocabulary
+        """
+        LEARNING: 
+        1. operate with b"" as prefix for bytes strings, instead of str, since the tokens are in bytes
+        2. never use token.decode or encode with utf-8, since not all byte sequences are valid utf-8 
+        """
+        bigram = b" ".join(pair) # the bigram to be merged in bytes
+        replacement = b"".join(pair) # the replacement for the bigram
+        p = re.compile(rb"(?<!\S)" + re.escape(bigram) + rb"(?!\S)") # fully match the bigram with spaces around it
+
+        for tokens, freq in vocab.items():
+            token_str = b" ".join(tokens)  # join the tokens into a string
+            new_token_str = p.sub(replacement, token_str)
+            # split the new token string into a tuple of bytes
+            new_token_tuple = tuple(new_token_str.split(b" "))
+            new_vocab[new_token_tuple] = freq
+        return new_vocab
+        
+
+    # get the stats of the tupled byte token frequency
+    pairs = get_stats(tupled_byte_token_frequency)
+    # get the max pair 
+    max_pair = max(pairs, key=pairs.get)
+    # print("Max pair frequency:", pairs[max_pair])
+
+    # merge the max pair
+    merged_byte_token_vocab = merge_tokens(tupled_byte_token_frequency, max_pair)
+    print("Merged byte token vocab:", merged_byte_token_vocab)
+    return vocab, []  # Placeholder for merges, as the implementation is not provided
