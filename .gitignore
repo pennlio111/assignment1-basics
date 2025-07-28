@@ -161,3 +161,10 @@ cython_debug/
 
 .ruff_cache/
 *.zip
+
+# data files
+/data/*
+.DS_Store
+
+# git config
+.gitignore

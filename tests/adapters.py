@@ -657,15 +657,15 @@ def run_train_bpe(
             new_token_tuple = tuple(new_token_str.split(b" "))
             new_vocab[new_token_tuple] = freq
         return new_vocab
-        
-
-    # get the stats of the tupled byte token frequency
-    pairs = get_stats(tupled_byte_token_frequency)
-    # get the max pair 
-    max_pair = max(pairs, key=pairs.get)
-    # print("Max pair frequency:", pairs[max_pair])
-
-    # merge the max pair
-    merged_byte_token_vocab = merge_tokens(tupled_byte_token_frequency, max_pair)
-    print("Merged byte token vocab:", merged_byte_token_vocab)
+    print("Initial vocabulary size:", len(tupled_byte_token_frequency))
+    merge_round = 5
+    while merge_round > 0 and len(tupled_byte_token_frequency) > 1:
+        # get the stats of the tupled byte token frequency
+        pairs = get_stats(tupled_byte_token_frequency)
+        # get the max pair 
+        max_pair = max(pairs, key=pairs.get)
+        # merge the max pair
+        tupled_byte_token_frequency = merge_tokens(tupled_byte_token_frequency, max_pair)
+        merge_round -= 1
+    print("Final vocabulary size:", len(tupled_byte_token_frequency))
     return vocab, []  # Placeholder for merges, as the implementation is not provided
