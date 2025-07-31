@@ -594,7 +594,26 @@ def run_train_bpe(
     """
     # init the vocabulary bytes
     INIT_VOCAB_SIZE = 256  # initial vocabulary size
-    vocab = {i: bytes([i]) for i in range(INIT_VOCAB_SIZE)} 
+
+    def build_vocab(speical_tokens, init_vocab_size):
+        """
+        LEARNING:
+        1. Build the initial vocab with the first 256 bytes PULS the special tokens in bytestring.
+        2. The special tokens are added first, and then the first 256 bytes are added.
+        """
+        vocab = {}  # type: dict[int, bytes]
+        idx = 0
+        # add special tokens to the vocab
+        for token in special_tokens:
+            vocab[idx] = token.encode("utf-8")  # encode the special token to bytes
+            idx += 1
+        # add the first 256 bytes to the vocab
+        for i in range(init_vocab_size):
+            vocab[idx] = bytes([i])
+            idx += 1
+        return vocab
+    
+    vocab = build_vocab(special_tokens, INIT_VOCAB_SIZE)
     # pre-tokenization
     with open(input_path, "r", encoding="utf-8") as f:
         # read the entire file as text
@@ -640,7 +659,7 @@ def run_train_bpe(
             for symbols, freq in vocab.items(): 
                 for i in range(len(symbols)-1): 
                     assert (symbols[i] != b"" or symbols[i+1] != b"") # ensure that the symbols are not empty
-                    pairs[symbols[i],symbols[i+1]] += freq
+                    pairs[(symbols[i],symbols[i+1])] += freq
             return pairs
         
         def merge_tokens(vocab, pair): 
@@ -679,16 +698,14 @@ def run_train_bpe(
         """
         LEARNING:
         1. max/min with key= is to extract the comparision key from the iterable, in this case, the frequency of the pairs
+        2. make sure to return the pair with greater lexicographic order 
         """
-        max_pair = max(pairs, key=pairs.get)
-        # print(f"max pair: {max_pair}, frequency: {pairs[max_pair]}")
-        # print(f"Start merging pair: {max_pair}")
+        max_value = max(pairs.values())
+        max_pairs = [k for k, v in pairs.items() if v == max_value]
+        max_pair = max(max_pairs, key=lambda x: (x[0], x[1]))
+        
         tupled_byte_token_frequency = merge_tokens(tupled_byte_token_frequency, max_pair)
         merges.append(max_pair)
         vocab[len(vocab)] = b"".join(max_pair) # append new token in the vocab
-        print(f"Vocabulary size after merge pair {max_pair}, {len(vocab)}, desired size: {vocab_size}")
-    
-    # print("Final vocabulary size:", len(vocab))
-    # print("Final merges:", merges[:10])  # print first 10 merges for brevity
 
     return vocab, merges  # Placeholder for merges, as the implementation is not provided
