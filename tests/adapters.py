@@ -606,9 +606,8 @@ def run_train_bpe(
     combined_pre_tokens = []
     for chunk in chunks:
         pre_tokens = re.findall(PAT, chunk)
-        combined_pre_tokens.extend(pre_tokens)
-    
-    # map the pre-tokens to bytes (tokens)
+        combined_pre_tokens.extend(pre_tokens)    
+
     pre_tokens_in_byte = [pre_token.encode("utf-8") for pre_token in combined_pre_tokens]
     
     pre_token_frequency = defaultdict(int)
@@ -632,40 +631,48 @@ def run_train_bpe(
     this is the starting point for the BPE merges
     """
     
-    # iterate thru the adjacent byte tokens and merge them
-    def get_stats(vocab): 
-        pairs = defaultdict(int) 
-        for symbols, freq in vocab.items(): 
-            for i in range(len(symbols)-1): 
-                pairs[symbols[i],symbols[i+1]] += freq
-        return pairs
-    
-    def merge_tokens(vocab, pair): 
-        # this is the learning/training process for the BPE tokenizer
-        new_vocab = defaultdict(int)
-        """
-        LEARNING: 
-        1. operate with b"" as prefix for bytes strings, instead of str, since the tokens are in bytes
-        2. never use token.decode or encode with utf-8, since not all byte sequences are valid utf-8 
-        """
-        bigram = b" ".join(pair) # the bigram to be merged in bytes
-        replacement = b"".join(pair) # the replacement for the bigram
-        p = re.compile(rb"(?<!\S)" + re.escape(bigram) + rb"(?!\S)") # fully match the bigram with spaces around it
-
-        for tokens, freq in vocab.items():
-            token_str = b" ".join(tokens)  # join the tokens into a string
-            new_token_str = p.sub(replacement, token_str)
-            # split the new token string into a tuple of bytes
-            new_token_tuple = tuple(new_token_str.split(b" "))
-            new_vocab[new_token_tuple] += freq
-        return new_vocab
-    
-    # print("Initial vocabulary size:", len(tupled_byte_token_frequency))
-    # merge the most frequent pairs until we reach the desired vocabulary size
-    
     merges = [] # list to store the merges
     
     while len(vocab) < vocab_size:
+            # iterate thru the adjacent byte tokens and merge them
+        def get_stats(vocab): 
+            pairs = defaultdict(int) 
+            for symbols, freq in vocab.items(): 
+                for i in range(len(symbols)-1): 
+                    assert (symbols[i] != b"" or symbols[i+1] != b"") # ensure that the symbols are not empty
+                    pairs[symbols[i],symbols[i+1]] += freq
+            return pairs
+        
+        def merge_tokens(vocab, pair): 
+            # this is the learning/training process for the BPE tokenizer
+            new_vocab = defaultdict(int)
+            """
+            LEARNING: 
+            1. operate with b"..." as prefix for bytes strings, instead of str, since the tokens are in bytes
+            2. never use token.decode or encode with utf-8, since not all byte sequences are valid utf-8 
+            """
+            for tokens, freq in vocab.items():
+                # print(f"old token tuple: {tokens}")
+                """
+                LEARNING:
+                1. Ths merge function must take care of the leading spaces very carefully, since in the pre-tokenization step, words are split by spaces, and the leading space is kept, e.g 
+                    "the cat ate" --> pre-tokenization --> [b'the', b' cat', b' ate']
+                2. the key of the vocab always preserve the tuple of byte tokens (aka each item in the tuple must be a valid token (in byte space) before/after merging).
+                """
+                merged = []
+                i = 0
+                while i < len(tokens):
+                    if i < len(tokens) - 1 and (tokens[i], tokens[i + 1]) == pair:
+                        merged.append(tokens[i] + tokens[i + 1])
+                        i += 2
+                    else:
+                        merged.append(tokens[i])
+                        i += 1
+                new_token_tuple = tuple(merged)  # convert the merged tokens back to a tuple of bytes
+                # print(f"new token tuple: {new_token_tuple}")
+                new_vocab[new_token_tuple] += freq
+            return new_vocab
+    
         # get the stats of the tupled byte token frequency
         pairs = get_stats(tupled_byte_token_frequency)
         # get the max pair 
@@ -674,10 +681,12 @@ def run_train_bpe(
         1. max/min with key= is to extract the comparision key from the iterable, in this case, the frequency of the pairs
         """
         max_pair = max(pairs, key=pairs.get)
-        # merge the max pair
+        # print(f"max pair: {max_pair}, frequency: {pairs[max_pair]}")
+        # print(f"Start merging pair: {max_pair}")
         tupled_byte_token_frequency = merge_tokens(tupled_byte_token_frequency, max_pair)
         merges.append(max_pair)
         vocab[len(vocab)] = b"".join(max_pair) # append new token in the vocab
+        print(f"Vocabulary size after merge pair {max_pair}, {len(vocab)}, desired size: {vocab_size}")
     
     # print("Final vocabulary size:", len(vocab))
     # print("Final merges:", merges[:10])  # print first 10 merges for brevity
