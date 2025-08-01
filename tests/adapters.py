@@ -598,7 +598,7 @@ def run_train_bpe(
     def build_vocab(speical_tokens, init_vocab_size):
         """
         LEARNING:
-        1. Build the initial vocab with the first 256 bytes PULS the special tokens in bytestring.
+        1. Build the initial vocab with the first 256 bytes PULS the special tokens encoded in bytestring.
         2. The special tokens are added first, and then the first 256 bytes are added.
         """
         vocab = {}  # type: dict[int, bytes]
