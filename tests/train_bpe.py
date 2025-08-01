@@ -1,5 +1,6 @@
 import argparse
 from adapters import run_train_bpe
+import pickle
 
 def main():
     """
@@ -13,6 +14,8 @@ def main():
     parser.add_argument("--vocab_size", type=int, default=500, help="Size of the vocabulary to be created.")
     parser.add_argument("--special_tokens", nargs="+", default=["<|endoftext|>"],
                         help="List of special tokens to be included in the vocabulary.")
+    parser.add_argument("--output_path", type=str, default="./data/my_bpe_data", 
+                        help="Path to save the BPE vocabulary and merges.")
     args = parser.parse_args()
 
     vocab, merges = run_train_bpe(
@@ -27,15 +30,15 @@ def main():
     print("Number of merges:", len(merges))
     print("Sample merges:", merges[:10])
 
-    # bpe_data = {
-    #     "vocab": vocab,
-    #     "merges": merges,
-    # }
+    
+    bpe_data = {
+        "vocab": vocab,
+        "merges": merges,
+    }
 
-    # import pickle
-    # # Save the vocabulary and merges to files
-    # with open("./data/my_bpe_data", "wb") as f:
-    #     pickle.dump(bpe_data, f)
+    # Save the vocabulary and merges to files
+    with open(args.output_path, "wb") as f:
+        pickle.dump(bpe_data, f)
 
 if __name__ == "__main__":
     main()
