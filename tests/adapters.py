@@ -564,7 +564,7 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    return Tokenizer().from_files(
+    return Tokenizer(
         vocab=vocab,
         merges=merges,
         special_tokens=special_tokens,
@@ -601,7 +601,7 @@ def run_train_bpe(
     # init the vocabulary bytes
     INIT_VOCAB_SIZE = 256  # initial vocabulary size
 
-    def build_vocab(speical_tokens, init_vocab_size):
+    def build_vocab(special_tokens, init_vocab_size):
         """
         LEARNING:
         1. Build the initial vocab with the first 256 bytes PULS the special tokens encoded in bytestring.
@@ -660,29 +660,29 @@ def run_train_bpe(
     
     while len(vocab) < vocab_size:
             # iterate thru the adjacent byte tokens and merge them
-        def get_stats(vocab): 
+        def get_stats(freq_vocab): 
             pairs = defaultdict(int) 
-            for symbols, freq in vocab.items(): 
+            for symbols, freq in freq_vocab.items(): 
                 for i in range(len(symbols)-1): 
                     assert (symbols[i] != b"" or symbols[i+1] != b"") # ensure that the symbols are not empty
                     pairs[(symbols[i],symbols[i+1])] += freq
             return pairs
         
-        def merge_tokens(vocab, pair): 
+        def merge_tokens(freq_vocab, pair): 
             # this is the learning/training process for the BPE tokenizer
-            new_vocab = defaultdict(int)
+            new_freq_vocab = defaultdict(int)
             """
             LEARNING: 
             1. operate with b"..." as prefix for bytes strings, instead of str, since the tokens are in bytes
             2. never use token.decode or encode with utf-8, since not all byte sequences are valid utf-8 
             """
-            for tokens, freq in vocab.items():
+            for tokens, freq in freq_vocab.items():
                 # print(f"old token tuple: {tokens}")
                 """
                 LEARNING:
                 1. Ths merge function must take care of the leading spaces very carefully, since in the pre-tokenization step, words are split by spaces, and the leading space is kept, e.g 
                     "the cat ate" --> pre-tokenization --> [b'the', b' cat', b' ate']
-                2. the key of the vocab always preserve the tuple of byte tokens (aka each item in the tuple must be a valid token (in byte space) before/after merging).
+                2. the key of the freq_vocab always preserve the tuple of byte tokens (aka each item in the tuple must be a valid token (in byte space) before/after merging).
                 """
                 merged = []
                 i = 0
@@ -695,8 +695,8 @@ def run_train_bpe(
                         i += 1
                 new_token_tuple = tuple(merged)  # convert the merged tokens back to a tuple of bytes
                 # print(f"new token tuple: {new_token_tuple}")
-                new_vocab[new_token_tuple] += freq
-            return new_vocab
+                new_freq_vocab[new_token_tuple] += freq
+            return new_freq_vocab
     
         # get the stats of the tupled byte token frequency
         pairs = get_stats(tupled_byte_token_frequency)

@@ -1,5 +1,5 @@
 from typing import Iterable, Iterator
-
+import json
 
 class Tokenizer(object):
     """
@@ -7,7 +7,17 @@ class Tokenizer(object):
     """
     
     def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None):
-        raise NotImplementedError("Tokenizer initialization not implemented")
+        """
+        Initialize the Tokenizer with vocabulary and merges.
+        
+        Args:
+            vocab (dict): A dictionary mapping token IDs to byte strings.
+            merges (list): A list of tuples representing merges.
+            special_tokens (list, optional): List of special tokens to include.
+        """
+        self.vocab = vocab
+        self.merges = merges
+        self.special_tokens = special_tokens or []
     
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None = None):
@@ -22,7 +32,17 @@ class Tokenizer(object):
         Returns:
             Tokenizer: An instance of the Tokenizer class.
         """
-        raise NotImplementedError("Tokenizer loading from files not implemented")
+        # assume vocab is in JSON format dict[int, bytes]
+        
+        with open(vocab_filepath, "r") as f:
+            reverse_vocab = json.load(f)
+        vocab = {v:k.encode('utf-8') for k, v in reverse_vocab.items()}
+        
+        with open(merges_filepath, "r") as f:
+            merges = [tuple(line.strip().split()) for line in f.readlines()]
+            merges = [(bytes(merge[0], 'utf-8'), bytes(merge[1], 'utf-8')) for merge in merges]
+        
+        return cls(vocab=vocab, merges=merges, special_tokens=special_tokens)
     
     def encode(self, text: str) -> list[int]:
         """

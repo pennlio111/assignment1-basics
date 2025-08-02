@@ -1,5 +1,5 @@
 import argparse
-from adapters import run_train_bpe
+from tests.adapters import run_train_bpe
 import pickle
 
 def main():
