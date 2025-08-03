@@ -9,6 +9,7 @@ class Tokenizer(object):
     def __init__(self, vocab: dict[int, bytes], merges: list[tuple[bytes, bytes]], special_tokens: list[str] | None = None):
         """
         Initialize the Tokenizer with vocabulary and merges.
+        Add special tokens to the vocabulary if provided and not present.
         
         Args:
             vocab (dict): A dictionary mapping token IDs to byte strings.
@@ -17,7 +18,12 @@ class Tokenizer(object):
         """
         self.vocab = vocab
         self.merges = merges
-        self.special_tokens = special_tokens or []
+        self.special_tokens = list(set(special_tokens)) or []  # Ensure special tokens are unique
+        
+        # Add special tokens to the vocabulary if they are not already present
+        for special_token in self.special_tokens:
+            if special_token.encode('utf-8') not in self.vocab.values():
+                self.vocab[len(self.vocab)] = special_token.encode('utf-8')
     
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None = None):
@@ -54,7 +60,8 @@ class Tokenizer(object):
         Returns:
             list: A list of token IDs.
         """
-        raise NotImplementedError("Tokenization not implemented")
+        # pre-tokenize
+
     
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[str]:
