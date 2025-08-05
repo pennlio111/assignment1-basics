@@ -13,6 +13,7 @@ import torch
 from torch import Tensor
 
 from tests.tokenizer import Tokenizer
+from tests.constants import PAT
 
 
 def run_linear(
@@ -627,7 +628,7 @@ def run_train_bpe(
     # split the text into chunks based on the special tokens
     chunks = re.split("|".join(map(re.escape, special_tokens)), raw_text)
     # pre-tokenize each chunk
-    PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+    
     combined_pre_tokens = []
     for chunk in chunks:
         pre_tokens = re.findall(PAT, chunk)
