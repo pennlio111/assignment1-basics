@@ -62,7 +62,36 @@ class Tokenizer(object):
         Returns:
             list: A list of token IDs.
         """
-        chunks = re.split("|".join(map(re.escape, self.special_tokens)), text)
+
+        def split_and_preserve_special_tokens(text, special_tokens):
+            # Create a regex pattern that captures the special tokens
+            escaped_tokens = list(map(re.escape, special_tokens))
+            """
+            LEARNING:
+            1. With (), the regex patter is constructed to capture the special tokens after the split. 
+            2. For example, if special_tokens = ["<|endoftext|>", "<|startoftext|>"], the pattern becomes 
+                "(<\|endoftext\|>|<\|startoftext\|>)". This means that when we split the text, 
+                the special tokens themselves will be included in the resulting list of parts.
+            """
+            pattern = f"({'|'.join(escaped_tokens)})" 
+
+            # Split while preserving the tokens as separate elements
+            parts = re.split(pattern, text)
+
+            # Stitch back together, attaching token to the preceding chunk
+            chunks = []
+            buffer = ''
+            for part in parts:
+                if part in special_tokens:
+                    chunks.append(buffer + part)
+                    buffer = ''
+                else:
+                    buffer = part
+            if buffer: # do not forget the last chunk
+                chunks.append(buffer)
+            return chunks
+
+        chunks = split_and_preserve_special_tokens(text, self.special_tokens) if self.special_tokens else [text]
         # pre-tokenize each chunk
         full_text_in_pre_token = []
         for chunk in chunks:
@@ -123,4 +152,11 @@ class Tokenizer(object):
         Returns:
             str: The decoded text.
         """
-        raise NotImplementedError("Decoding not implemented")
+        byte_tokens = []
+        for token_id in ids:
+            if token_id in self.vocab:
+                byte_tokens.append(self.vocab[token_id])
+            else:
+                raise ValueError(f"Token ID {token_id} not found in vocabulary.")
+        decoded_text = b"".join(byte_tokens).decode('utf-8', errors='replace')
+        return decoded_text
