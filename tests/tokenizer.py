@@ -1,6 +1,6 @@
 from .constants import PAT
 from typing import Iterable, Iterator
-import json
+import pickle
 import regex as re
 
 class Tokenizer(object):
@@ -20,13 +20,14 @@ class Tokenizer(object):
         """
         self.vocab = vocab
         self.merges = merges
-        self.special_tokens = list(set(special_tokens)) or []  # Ensure special tokens are unique
+        self.special_tokens = list(set(special_tokens)) if special_tokens else []  # Ensure special tokens are unique
         self.reverse_vocab = {v: k for k, v in vocab.items()}  # Reverse mapping for decoding
         
         # Add special tokens to the vocabulary if they are not already present
         for special_token in self.special_tokens:
             if special_token.encode('utf-8') not in self.vocab.values():
                 self.vocab[len(self.vocab)] = special_token.encode('utf-8')
+                print(f"Added special token '{special_token}' to vocabulary with ID {len(self.vocab) - 1}.")
     
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None = None):
@@ -42,13 +43,12 @@ class Tokenizer(object):
             Tokenizer: An instance of the Tokenizer class.
         """
         # assume vocab is in JSON format dict[int, bytes]
-        with open(vocab_filepath, "r") as f:
-            reverse_vocab = json.load(f)
-        vocab = {v:k.encode('utf-8') for k, v in reverse_vocab.items()}
+        with open(vocab_filepath, "rb") as f:
+            vocab = pickle.load(f)
         
-        with open(merges_filepath, "r") as f:
-            merges = [tuple(line.strip().split()) for line in f.readlines()]
-            merges = [(bytes(merge[0], 'utf-8'), bytes(merge[1], 'utf-8')) for merge in merges]
+        with open(merges_filepath, "rb") as f:
+            merges = pickle.load(f)
+        # merges is list of tuple[bytes, bytes]
         
         return cls(vocab=vocab, merges=merges, special_tokens=special_tokens)
     
@@ -67,14 +67,12 @@ class Tokenizer(object):
         full_text_in_pre_token = []
         for chunk in chunks:
             pre_tokens = re.findall(PAT, chunk)
-            full_text_in_pre_token.extend(token.encode('utf-8') for token in pre_tokens)
+            full_text_in_pre_token.extend(pre_token.encode('utf-8') for pre_token in pre_tokens)
         
         token_list_after_merge = []
         # apply the merges for each token
         for pre_token in full_text_in_pre_token:
-            print(f"Pre-token: {pre_token}")
             byte_pre_token_list = [bytes([t]) for t in pre_token]
-            print(f"Byte pre-token list before merge: {byte_pre_token_list}")
             scan_token_list = True # indicate if need to scan the list again
             while scan_token_list:
                 scan_token_list = False
@@ -90,9 +88,10 @@ class Tokenizer(object):
                             break
                     i += 1
             token_list_after_merge.append(byte_pre_token_list)
+        
         # convert byte tokens to IDs
         token_ids = []
-        print(f"final byte pre-token list: {token_list_after_merge}")
+        # print(f"Byte pre-token list after merge: {token_list_after_merge}")
         for byte_pre_token_list in token_list_after_merge:
             for byte_token in byte_pre_token_list:
                 if byte_token in self.reverse_vocab:

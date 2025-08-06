@@ -7,10 +7,10 @@ def main():
     """
     # Example input path and parameters
     parser = argparse.ArgumentParser(description="Load a trained BPE tokenizer and encode/decode.")
-    parser.add_argument("--vocab_file_path", type=str, default="./tests/fixtures/train-bpe-reference-vocab.json",
+    parser.add_argument("--vocab_file_path", type=str, default="./data/my_bpe_vocab.pkl",
                         help="Path to the trained vocab file.")
-    parser.add_argument("--merge_file_path", type=str, default="./tests/fixtures/train-bpe-reference-merges.txt", help="Path to the trained merges file.")
-    parser.add_argument("--special_tokens", nargs="+", default=[],
+    parser.add_argument("--merge_file_path", type=str, default="./data/my_bpe_merges.pkl", help="Path to the trained merges file.")
+    parser.add_argument("--special_tokens", nargs="+", default=["<|endoftext|>"],
                         help="List of special tokens to be included in the vocabulary.")
     args = parser.parse_args()
     # Load the tokenizer from files
@@ -20,6 +20,13 @@ def main():
 
     tokenizer = Tokenizer.from_files(vocab_filepath=vocab_filepath, merges_filepath=merges_filepath, special_tokens=special_tokens)
     
+    # vocab
+    # print("Vocabulary size:", len(tokenizer.vocab))
+    # assert b" " in tokenizer.vocab.values(), "Space token not found in vocabulary."
+    # merges
+    # print("Number of merges:", len(tokenizer.merges))
+    # print("First 10 merges:", tokenizer.merges[:10])
+
     # Example usage of the tokenizer
     sample_text = "Hello, this is a new world!<|endoftext|>"
     encoded = tokenizer.encode(sample_text)
@@ -27,5 +34,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
