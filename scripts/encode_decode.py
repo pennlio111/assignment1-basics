@@ -28,11 +28,11 @@ def main():
     # print("First 10 merges:", tokenizer.merges[:10])
 
     # Example usage of the tokenizer
-    sample_text = "Hello, this is a new world!<|endoftext|><|endoftext|>This is a test.<|endoftext|>"
+    sample_text = "<|endoftext|>\n\n"
     encoded = tokenizer.encode(sample_text)
-    # print("encoded:", encoded)
+    print("encoded:", encoded)
     decoded_text = tokenizer.decode(encoded)
-    print("decoded_text:", decoded_text)
+    # print("decoded_text:", decoded_text)
     assert decoded_text == sample_text, "Decoded text does not match the original."
 
 if __name__ == "__main__":

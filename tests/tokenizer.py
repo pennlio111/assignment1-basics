@@ -14,8 +14,8 @@ class Tokenizer(object):
         Add special tokens to the vocabulary if provided and not present.
         
         Args:
-            vocab (dict): A dictionary mapping token IDs to byte strings.
-            merges (list): A list of tuples representing merges.
+            vocab (dict[int, bytes]): A dictionary mapping token IDs to byte strings.
+            merges (list[tuple]): A list of tuples representing merges.
             special_tokens (list, optional): List of special tokens to include.
         """
         self.vocab = vocab
@@ -52,6 +52,70 @@ class Tokenizer(object):
         
         return cls(vocab=vocab, merges=merges, special_tokens=special_tokens)
     
+    def _split_and_preserve_special_tokens(self, text, special_tokens):
+            """
+            LEARNING:
+            1. With (), the regex patter is constructed to capture the special tokens after the split. 
+            2. For example, if special_tokens = ["<|endoftext|>", "<|startoftext|>"], the pattern becomes 
+                "(<\|endoftext\|>|<\|startoftext\|>)". This means that when we split the text, 
+                the special tokens themselves will be included in the resulting list of parts.
+            """
+            # Create a regex pattern that captures the special tokens
+            escaped_tokens = list(map(re.escape, special_tokens))
+            pattern = f"({'|'.join(map(re.escape, special_tokens))})"
+            # Split while preserving the tokens as separate elements
+            parts = re.split(pattern, text)
+            return [part for part in parts if part]  # Remove empty strings    
+    
+    
+    def _basic_encode(self, text: str) -> list[int]:
+        """
+        A basic encoding method that splits text into bytes and maps them to token IDs.
+        
+        Args:
+            text (str): The input text to encode.
+        
+        Returns:
+            list: A list of token IDs.
+        """
+        byte_tokens = [bytes([b]) for b in text.encode('utf-8')]
+        token_ids = []
+        for byte_token in byte_tokens:
+            if byte_token in self.reverse_vocab:
+                token_ids.append(self.reverse_vocab[byte_token])
+            else:
+                raise ValueError(f"Token {byte_token} not found in vocabulary.")
+        return token_ids
+    
+    def _merge_tokens(self, byte_tokens: list[bytes]) -> list[bytes]:
+        """
+        Merge byte tokens based on the BPE merges.
+        
+        Args:
+            byte_tokens (list): A list of byte tokens to merge.
+        
+        Returns:
+            list: A list of merged byte tokens.
+        """
+        token_list = byte_tokens.copy()
+        scan_token_list = True # indicate if need to scan the list again
+        while scan_token_list:
+            scan_token_list = False
+            i = 0
+            while i < len(token_list) - 1:
+                pair = (token_list[i], token_list[i + 1])
+                for merge in self.merges:
+                    if pair == merge:
+                        new_token = merge[0] + merge[1]
+                        token_list[i] = new_token # replace the first token with the merged one
+                        del token_list[i + 1] #
+                        scan_token_list = True
+                        break
+                else:
+                    i += 1
+        return token_list
+
+
     def encode(self, text: str) -> list[int]:
         """
         Encode a given text into tokens.
@@ -61,62 +125,22 @@ class Tokenizer(object):
         
         Returns:
             list: A list of token IDs.
-        """
+        """    
 
-        def split_and_preserve_special_tokens(text, special_tokens):
-            # Create a regex pattern that captures the special tokens
-            escaped_tokens = list(map(re.escape, special_tokens))
-            """
-            LEARNING:
-            1. With (), the regex patter is constructed to capture the special tokens after the split. 
-            2. For example, if special_tokens = ["<|endoftext|>", "<|startoftext|>"], the pattern becomes 
-                "(<\|endoftext\|>|<\|startoftext\|>)". This means that when we split the text, 
-                the special tokens themselves will be included in the resulting list of parts.
-            """
-            pattern = f"({'|'.join(escaped_tokens)})" 
-
-            # Split while preserving the tokens as separate elements
-            parts = re.split(pattern, text)
-
-            # Stitch back together, attaching token to the preceding chunk
-            chunks = []
-            buffer = ''
-            for part in parts:
-                if part in special_tokens:
-                    chunks.append(buffer + part)
-                    buffer = ''
-                else:
-                    buffer = part
-            if buffer: # do not forget the last chunk
-                chunks.append(buffer)
-            return chunks
-
-        chunks = split_and_preserve_special_tokens(text, self.special_tokens) if self.special_tokens else [text]
+        chunks = self.split_and_preserve_special_tokens(text, self.special_tokens) if self.special_tokens else [text]
+        print(f"Chunks after split: {chunks}")
         # pre-tokenize each chunk
         full_text_in_pre_token = []
         for chunk in chunks:
-            pre_tokens = re.findall(PAT, chunk)
-            full_text_in_pre_token.extend(pre_token.encode('utf-8') for pre_token in pre_tokens)
-        
-        token_list_after_merge = []
-        # apply the merges for each token
-        for pre_token in full_text_in_pre_token:
-            byte_pre_token_list = [bytes([t]) for t in pre_token]
-            scan_token_list = True # indicate if need to scan the list again
-            while scan_token_list:
-                scan_token_list = False
-                i = 0
-                while i < len(byte_pre_token_list) - 1:
-                    pair = (byte_pre_token_list[i], byte_pre_token_list[i + 1])
-                    for merge in self.merges:
-                        if pair == merge:
-                            new_token = merge[0] + merge[1]
-                            byte_pre_token_list[i] = new_token # replace the first token with the merged one
-                            del byte_pre_token_list[i + 1] # remove the second token
-                            scan_token_list = True
-                            break
-                    i += 1
-            token_list_after_merge.append(byte_pre_token_list)
+            if chunk in self.special_tokens:
+                full_text_in_pre_token.append(chunk.encode('utf-8'))
+            else:
+                pre_tokens = re.findall(PAT, chunk)
+                full_text_in_pre_token.extend(pre_token.encode('utf-8') for pre_token in pre_tokens)
+        print(f"Full text in pre-token: {full_text_in_pre_token}")
+        # todo: how to handle special tokens in the pre-tokenization, tokenize and merge steps, to ensure they are not split?
+
+        token_list_after_merge = self._merge_tokens(full_text_in_pre_token)
         
         # convert byte tokens to IDs
         token_ids = []
