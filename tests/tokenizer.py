@@ -21,13 +21,14 @@ class Tokenizer(object):
         self.vocab = vocab
         self.merges = merges
         self.special_tokens = list(set(special_tokens)) if special_tokens else []  # Ensure special tokens are unique
-        self.reverse_vocab = {v: k for k, v in vocab.items()}  # Reverse mapping for decoding
         
         # Add special tokens to the vocabulary if they are not already present
         for special_token in self.special_tokens:
             if special_token.encode('utf-8') not in self.vocab.values():
                 self.vocab[len(self.vocab)] = special_token.encode('utf-8')
                 print(f"Added special token '{special_token}' to vocabulary with ID {len(self.vocab) - 1}.")
+        
+        self.reverse_vocab = {v: k for k, v in vocab.items()}  # Reverse mapping for decoding
     
     @classmethod
     def from_files(cls, vocab_filepath: str, merges_filepath: str, special_tokens: list[str] | None = None):
@@ -61,7 +62,6 @@ class Tokenizer(object):
                 the special tokens themselves will be included in the resulting list of parts.
             """
             # Create a regex pattern that captures the special tokens
-            escaped_tokens = list(map(re.escape, special_tokens))
             pattern = f"({'|'.join(map(re.escape, special_tokens))})"
             # Split while preserving the tokens as separate elements
             parts = re.split(pattern, text)
@@ -127,12 +127,12 @@ class Tokenizer(object):
             list: A list of token IDs.
         """    
 
-        chunks = self.split_and_preserve_special_tokens(text, self.special_tokens) if self.special_tokens else [text]
+        chunks = self._split_and_preserve_special_tokens(text, self.special_tokens) if self.special_tokens else [text]
         print(f"Chunks after split: {chunks}")
         # pre-tokenize each chunk
         full_text_in_pre_token = []
         for chunk in chunks:
-            if chunk in self.special_tokens:
+            if chunk in self.special_tokens: # the entire chunk is a special token
                 full_text_in_pre_token.append(chunk.encode('utf-8'))
             else:
                 pre_tokens = re.findall(PAT, chunk)
@@ -141,16 +141,20 @@ class Tokenizer(object):
         # todo: how to handle special tokens in the pre-tokenization, tokenize and merge steps, to ensure they are not split?
 
         token_list_after_merge = self._merge_tokens(full_text_in_pre_token)
+
+        #encode with the _basic_encode method
+        token_ids = self._basic_encode(b"".join(token_list_after_merge).decode('utf-8', errors='replace'))
         
-        # convert byte tokens to IDs
-        token_ids = []
-        # print(f"Byte pre-token list after merge: {token_list_after_merge}")
-        for byte_pre_token_list in token_list_after_merge:
-            for byte_token in byte_pre_token_list:
-                if byte_token in self.reverse_vocab:
-                    token_ids.append(self.reverse_vocab[byte_token])
-                else:
-                    raise ValueError(f"Token {byte_token} not found in vocabulary.")
+        # # convert byte tokens to IDs
+        # token_ids = []
+        # # print(f"Byte pre-token list after merge: {token_list_after_merge}")
+        # for byte_pre_token_list in token_list_after_merge:
+        #     for byte_token in byte_pre_token_list:
+        #         if byte_token in self.reverse_vocab:
+        #             token_ids.append(self.reverse_vocab[byte_token])
+        #         else:
+        #             print(chr(byte_token))
+        #             raise ValueError(f"Token {byte_token} not found in vocabulary.")
         return token_ids
                 
 
