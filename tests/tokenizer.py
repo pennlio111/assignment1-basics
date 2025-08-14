@@ -59,7 +59,7 @@ class Tokenizer(object):
             1. With (), the regex patter is constructed to capture the special tokens after the split. 
             2. For example, if special_tokens = ["<|endoftext|>", "<|startoftext|>"], the pattern becomes 
                 "(<\|endoftext\|>|<\|startoftext\|>)". This means that when we split the text, 
-                the special tokens themselves will be included in the resulting list of parts.
+                the special tokens themselves will be included in the resulting list of parts, as a separate item in the list.
             """
             # Create a regex pattern that captures the special tokens
             pattern = f"({'|'.join(map(re.escape, special_tokens))})"
@@ -128,34 +128,19 @@ class Tokenizer(object):
         """    
 
         chunks = self._split_and_preserve_special_tokens(text, self.special_tokens) if self.special_tokens else [text]
-        print(f"Chunks after split: {chunks}")
         # pre-tokenize each chunk
-        full_text_in_pre_token = []
+        full_text_after_encoding = []
         for chunk in chunks:
             if chunk in self.special_tokens: # the entire chunk is a special token
-                full_text_in_pre_token.append(chunk.encode('utf-8'))
+                full_text_after_encoding.append(self.reverse_vocab[chunk.encode('utf-8')])
             else:
-                pre_tokens = re.findall(PAT, chunk)
-                full_text_in_pre_token.extend(pre_token.encode('utf-8') for pre_token in pre_tokens)
-        print(f"Full text in pre-token: {full_text_in_pre_token}")
-        # todo: how to handle special tokens in the pre-tokenization, tokenize and merge steps, to ensure they are not split?
-
-        token_list_after_merge = self._merge_tokens(full_text_in_pre_token)
-
-        #encode with the _basic_encode method
-        token_ids = self._basic_encode(b"".join(token_list_after_merge).decode('utf-8', errors='replace'))
-        
-        # # convert byte tokens to IDs
-        # token_ids = []
-        # # print(f"Byte pre-token list after merge: {token_list_after_merge}")
-        # for byte_pre_token_list in token_list_after_merge:
-        #     for byte_token in byte_pre_token_list:
-        #         if byte_token in self.reverse_vocab:
-        #             token_ids.append(self.reverse_vocab[byte_token])
-        #         else:
-        #             print(chr(byte_token))
-        #             raise ValueError(f"Token {byte_token} not found in vocabulary.")
-        return token_ids
+                # pre-tokenize the chunk
+                pre_tokens = [pre_token.encode('utf-8') for pre_token in re.findall(PAT, chunk)]
+                token_list_after_merge = self._merge_tokens(pre_tokens)
+                token_ids = self._basic_encode(b"".join(token_list_after_merge).decode('utf-8', errors='replace'))
+                full_text_after_encoding.extend(token_ids)
+        # print(f"Full text after encoding: {full_text_after_encoding}")
+        return full_text_after_encoding
                 
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[str]:

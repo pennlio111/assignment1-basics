@@ -53,10 +53,11 @@ def get_tokenizer_from_vocab_merges_path(
     # The GPT-2 tokenizer uses a remapped unicode encoding for bytes. Let's
     # just return the original bytes, so we don't force students to use
     # any particular encoding scheme.
-    vocab = {
-        gpt2_vocab_index: bytes([gpt2_byte_decoder[token] for token in gpt2_vocab_item])
-        for gpt2_vocab_item, gpt2_vocab_index in gpt2_vocab.items()
-    }
+    vocab = {}
+    for gpt2_vocab_item, gpt2_vocab_index in gpt2_vocab.items():
+        # Convert the GPT-2 token string to bytes using the byte decoder
+        byte_sequence = bytes([gpt2_byte_decoder[token] for token in gpt2_vocab_item])
+        vocab[gpt2_vocab_index] = byte_sequence
     # If any of the special tokens don't exist in the vocab, append them to the vocab.
     if special_tokens:
         for special_token in special_tokens:
@@ -64,13 +65,12 @@ def get_tokenizer_from_vocab_merges_path(
             if byte_encoded_special_token not in set(vocab.values()):
                 vocab[len(vocab)] = byte_encoded_special_token
 
-    merges = [
-        (
-            bytes([gpt2_byte_decoder[token] for token in merge_token_1]),
-            bytes([gpt2_byte_decoder[token] for token in merge_token_2]),
-        )
-        for merge_token_1, merge_token_2 in gpt2_bpe_merges
-    ]
+    merges = []
+    for merge_token_1, merge_token_2 in gpt2_bpe_merges:
+        # Convert the GPT-2 merge tokens to bytes using the byte decoder
+        byte_merge_1 = bytes([gpt2_byte_decoder[token] for token in merge_token_1])
+        byte_merge_2 = bytes([gpt2_byte_decoder[token] for token in merge_token_2])
+        merges.append((byte_merge_1, byte_merge_2))
     return get_tokenizer(vocab, merges, special_tokens)
 
 

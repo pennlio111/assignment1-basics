@@ -19,17 +19,9 @@ def main():
     special_tokens = args.special_tokens
 
     tokenizer = Tokenizer.from_files(vocab_filepath=vocab_filepath, merges_filepath=merges_filepath, special_tokens=special_tokens)
-    assert b"<|endoftext|>" in tokenizer.vocab.values(), "Special token <|endoftext|> not found in vocabulary."
-    assert b"<" in tokenizer.vocab.values(), "Special token '<' not found in vocabulary."
-    # vocab
-    # print("Vocabulary size:", len(tokenizer.vocab))
-    # assert b" " in tokenizer.vocab.values(), "Space token not found in vocabulary."
-    # merges
-    # print("Number of merges:", len(tokenizer.merges))
-    # print("First 10 merges:", tokenizer.merges[:10])
 
     # Example usage of the tokenizer
-    sample_text = "<|endoftext|>\n\n"
+    sample_text = "🙃"
 
     encoded = tokenizer.encode(sample_text)
     print("encoded:", encoded)
