@@ -78,6 +78,9 @@ class Tokenizer(object):
         
         Returns:
             list[int]: A list of merged token IDs.
+
+        LEARNING:
+        1. reference implementation: https://github.com/WangYuHang-cmd/CS336/tree/main
         """
         while True:
             best_rank = float('inf')
@@ -156,7 +159,7 @@ class Tokenizer(object):
         return full_text_after_encoding
                 
 
-    def encode_iterable(self, iterable: Iterable[str]) -> Iterator[str]:
+    def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
         """
         Encode an iterable of text into tokens.
         
@@ -166,7 +169,17 @@ class Tokenizer(object):
         Returns:
             list: A list of token IDs for each text in the iterable.
         """
-        raise NotImplementedError("Tokenization of iterable not implemented")
+        for text in iterable:
+            # Get the token IDs for this text
+            token_ids = self.encode(text)
+            # Yield each individual token ID
+            """
+            LEARNING:
+            1. the generator approach returns a generator object, which is an iterator being able to yield values one at a time when called
+            2. when it is called, it yield the next value in the sequence, and pause the execution until the next call
+            """
+            for token_id in token_ids:
+                yield token_id
     
     def decode(self, ids: list[int]) -> str:
         """
