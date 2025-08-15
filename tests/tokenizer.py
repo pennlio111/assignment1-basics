@@ -127,14 +127,7 @@ class Tokenizer(object):
             text (str): The input text to tokenize.
         
         Returns:
-            list: A list of token IDs.
-
-        LEARNING:
-        The encoding process is done in two steps:
-        - First, the text is split into chunks, and each chunk is pre-tokenized.
-        - Second, try convert the pre-token to token IDs by looking up in the vocabulary if it is in the vocabulary.
-        - Third, find the longest token that matches the beginning of the given bytes string.
-        - Fourth, if no prefix match found, break it into individual bytes and apply BPE merging, and look up in the vocabulary again.
+            list: A list of token IDs.        
         """    
 
         chunks = self._split_and_preserve_special_tokens(text, self.special_tokens) if self.special_tokens else [text]
@@ -147,56 +140,64 @@ class Tokenizer(object):
                 # pre-tokenize the chunk
                 pre_tokens_raw = re.findall(PAT, chunk)
                 pre_tokens = [pre_token.encode('utf-8') for pre_token in pre_tokens_raw]
-                # print(f"Pre tokens: {pre_tokens}")
-                def lookup_token_or_bytes(token_bytes):
-                    """Look up a token in vocabulary, or break into individual bytes if not found."""
-                    if token_bytes in self.reverse_vocab:
-                        return [self.reverse_vocab[token_bytes]]
-                    else:
-                        # If not found, break into individual bytes
-                        return [self.reverse_vocab[bytes([b])] for b in token_bytes]
-                
-                def find_longest_token_match(token_bytes):
-                    """Find the longest token that matches the beginning of the given bytes."""
-                    for length in range(len(token_bytes), 0, -1):
-                        prefix = token_bytes[:length]
-                        if prefix in self.reverse_vocab:
-                            return prefix, self.reverse_vocab[prefix]
-                    return None, None
-                
-                def token_to_ids(token_bytes):
-                    """Convert a byte token to a list of token IDs, handling BPE merging if needed."""
-                    # First try direct lookup
-                    if token_bytes in self.reverse_vocab:
-                        return [self.reverse_vocab[token_bytes]]
-                    
-                    # Try to find the longest token that matches the beginning
-                    longest_token, token_id = find_longest_token_match(token_bytes)
-                    if longest_token:
-                        # We found a matching token, process the remainder
-                        remainder = token_bytes[len(longest_token):]
-                        if remainder:
-                            # Process the remainder recursively
-                            remainder_ids = token_to_ids(remainder)
-                            return [token_id] + remainder_ids
-                        else:
-                            return [token_id]
-                    
-                    # If no prefix match found, apply BPE merging
-                    byte_list = [bytes([b]) for b in token_bytes]
-                    merged_token_list = self._merge_pre_token(byte_list)
-                    
-                    # Convert merged_token_list byte sequences to token IDs
-                    token_ids = []
-                    for merged_token in merged_token_list:
-                        token_ids.extend(lookup_token_or_bytes(merged_token))
-                    return token_ids
-                
-                # Process all pre-tokens
-                token_ids = []
+                # Process all pre-tokens using BPE merging (inspired by reference implementation)
                 for pre_token in pre_tokens:
-                    token_ids.extend(token_to_ids(pre_token))
-                full_text_after_encoding.extend(token_ids)
+                    # Convert pre-token to individual byte tokens first
+                    byte_tokens = [bytes([b]) for b in pre_token]
+                    # Convert bytes to token IDs
+                    token_ids = [self.reverse_vocab[bt] for bt in byte_tokens if bt in self.reverse_vocab]
+                    if len(token_ids) == 1:
+                        full_text_after_encoding.append(token_ids[0])
+                        continue
+                    
+                    """
+                    LEARNING:
+                    The encoding process is done in three steps:
+                    1. First, the text is split into chunks, and each chunk is pre-tokenized.
+                    2. Then, convert the pre-token to list of individual tokens
+                    3. Apply BPE merging to the list of individual tokens, prioritize the smallest rank merges in the vocabulary (that generates the most common pairs)
+                    """
+                    # Apply BPE merging using "greedy smallest-rank merge"
+                    while True:
+                        best_rank = float('inf')
+                        best_pos = -1
+                        
+                        # Find the pair with lowest rank (highest priority)
+                        for i in range(len(token_ids) - 1):
+                            # Get the byte sequences for the current pair
+                            byte1 = self.vocab[token_ids[i]]
+                            byte2 = self.vocab[token_ids[i + 1]]
+                            pair = (byte1, byte2)
+                            
+                            # Find the rank of this pair in merges
+                            rank = -1
+                            for j, merge in enumerate(self.merges):
+                                if merge == pair:
+                                    rank = j
+                                    break
+                            
+                            if rank != -1 and rank < best_rank:
+                                best_rank = rank
+                                best_pos = i
+                        
+                        if best_pos == -1:
+                            break  # No more merges possible
+                        
+                        # Merge the best pair
+                        byte1 = self.vocab[token_ids[best_pos]]
+                        byte2 = self.vocab[token_ids[best_pos + 1]]
+                        merged_bytes = byte1 + byte2
+                        
+                        # Find the token ID for the merged bytes
+                        if merged_bytes in self.reverse_vocab:
+                            new_id = self.reverse_vocab[merged_bytes]
+                            # Replace the pair with the merged token
+                            token_ids[best_pos:best_pos + 2] = [new_id]
+                        else:
+                            # If merged token not in vocab, stop merging
+                            break
+                    
+                    full_text_after_encoding.extend(token_ids)
         return full_text_after_encoding
                 
 
