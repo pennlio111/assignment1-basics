@@ -106,6 +106,7 @@ class Tokenizer(object):
                 pair = (token_list[i], token_list[i + 1])
                 for merge in self.merges:
                     if pair == merge:
+                        print(f"Merging {pair} with {merge}")
                         new_token = merge[0] + merge[1]
                         token_list[i] = new_token # replace the first token with the merged one
                         del token_list[i + 1] #
@@ -136,10 +137,11 @@ class Tokenizer(object):
             else:
                 # pre-tokenize the chunk
                 pre_tokens = [pre_token.encode('utf-8') for pre_token in re.findall(PAT, chunk)]
+                print(f"Pre tokens: {pre_tokens}")
                 token_list_after_merge = self._merge_tokens(pre_tokens)
+                print(f"Token list after merge: {token_list_after_merge}")
                 token_ids = self._basic_encode(b"".join(token_list_after_merge).decode('utf-8', errors='replace'))
                 full_text_after_encoding.extend(token_ids)
-        # print(f"Full text after encoding: {full_text_after_encoding}")
         return full_text_after_encoding
                 
 

@@ -1,5 +1,10 @@
 import argparse
 from tests.tokenizer import Tokenizer
+from tests.common import FIXTURES_PATH, gpt2_bytes_to_unicode
+from tests.test_tokenizer import get_tokenizer_from_vocab_merges_path
+
+VOCAB_PATH = FIXTURES_PATH / "gpt2_vocab.json"
+MERGES_PATH = FIXTURES_PATH / "gpt2_merges.txt"
 
 def main():
     """
@@ -14,19 +19,20 @@ def main():
                         help="List of special tokens to be included in the vocabulary.")
     args = parser.parse_args()
     # Load the tokenizer from files
-    vocab_filepath = args.vocab_file_path
-    merges_filepath = args.merge_file_path
+    # vocab_filepath = args.vocab_file_path
+    # merges_filepath = args.merge_file_path
     special_tokens = args.special_tokens
 
-    tokenizer = Tokenizer.from_files(vocab_filepath=vocab_filepath, merges_filepath=merges_filepath, special_tokens=special_tokens)
+    tokenizer = get_tokenizer_from_vocab_merges_path(vocab_path=VOCAB_PATH, merges_path=MERGES_PATH, special_tokens=special_tokens)
 
     # Example usage of the tokenizer
-    sample_text = "🙃"
+    # sample_text = "🙃"
+    sample_text = "Hello, world! 🙃<|endoftext|>\n\n"
 
     encoded = tokenizer.encode(sample_text)
     print("encoded:", encoded)
     decoded_text = tokenizer.decode(encoded)
-    # print("decoded_text:", decoded_text)
+    print("decoded_text:", decoded_text)
     assert decoded_text == sample_text, "Decoded text does not match the original."
 
 if __name__ == "__main__":
