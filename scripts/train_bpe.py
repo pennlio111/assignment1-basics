@@ -14,7 +14,7 @@ def main():
     parser.add_argument("--vocab_size", type=int, default=500, help="Size of the vocabulary to be created.")
     parser.add_argument("--special_tokens", nargs="+", default=["<|endoftext|>"],
                         help="List of special tokens to be included in the vocabulary.")
-    parser.add_argument("--output_path", type=str, default="./data/my_bpe_data", 
+    parser.add_argument("--output_path", type=str, default="./data/my_ts_data", 
                         help="Path to save the BPE vocabulary and merges.")
     args = parser.parse_args()
 
