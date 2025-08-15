@@ -26,8 +26,8 @@ def main():
     tokenizer = get_tokenizer_from_vocab_merges_path(vocab_path=VOCAB_PATH, merges_path=MERGES_PATH, special_tokens=special_tokens)
 
     # Example usage of the tokenizer
-    # sample_text = "🙃"
-    sample_text = "Hello, world! 🙃<|endoftext|>\n\n"
+    sample_text = "🙃"
+    # sample_text = "Hello, how are you?"
 
     encoded = tokenizer.encode(sample_text)
     print("encoded:", encoded)

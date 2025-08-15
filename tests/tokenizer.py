@@ -61,8 +61,10 @@ class Tokenizer(object):
                 "(<\|endoftext\|>|<\|startoftext\|>)". This means that when we split the text, 
                 the special tokens themselves will be included in the resulting list of parts, as a separate item in the list.
             """
+            # Sort special tokens by length in descending order to match longer tokens first
+            sorted_special_tokens = sorted(special_tokens, key=len, reverse=True)
             # Create a regex pattern that captures the special tokens
-            pattern = f"({'|'.join(map(re.escape, special_tokens))})"
+            pattern = f"({'|'.join(map(re.escape, sorted_special_tokens))})"
             # Split while preserving the tokens as separate elements
             parts = re.split(pattern, text)
             return [part for part in parts if part]  # Remove empty strings    
@@ -87,9 +89,9 @@ class Tokenizer(object):
                 raise ValueError(f"Token {byte_token} not found in vocabulary.")
         return token_ids
     
-    def _merge_tokens(self, byte_tokens: list[bytes]) -> list[bytes]:
+    def _merge_pre_token(self, byte_tokens: list[bytes]) -> list[bytes]:
         """
-        Merge byte tokens based on the BPE merges.
+        Merge byte tokens based on the BPE merges for a single pre-token.
         
         Args:
             byte_tokens (list): A list of byte tokens to merge.
@@ -106,7 +108,7 @@ class Tokenizer(object):
                 pair = (token_list[i], token_list[i + 1])
                 for merge in self.merges:
                     if pair == merge:
-                        print(f"Merging {pair} with {merge}")
+                        # print(f"Merging {pair}")
                         new_token = merge[0] + merge[1]
                         token_list[i] = new_token # replace the first token with the merged one
                         del token_list[i + 1] #
@@ -126,6 +128,12 @@ class Tokenizer(object):
         
         Returns:
             list: A list of token IDs.
+
+        LEARNING:
+        The encoding process is done in two steps:
+        - First, the text is split into chunks, and each chunk is pre-tokenized.
+        - Then, try convert the pre-token to token IDs by looking up in the vocabulary if it is in the vocabulary
+        - Otherwise, break it into individual bytes and merge them, and look up in the vocabulary again.
         """    
 
         chunks = self._split_and_preserve_special_tokens(text, self.special_tokens) if self.special_tokens else [text]
@@ -136,11 +144,38 @@ class Tokenizer(object):
                 full_text_after_encoding.append(self.reverse_vocab[chunk.encode('utf-8')])
             else:
                 # pre-tokenize the chunk
-                pre_tokens = [pre_token.encode('utf-8') for pre_token in re.findall(PAT, chunk)]
-                print(f"Pre tokens: {pre_tokens}")
-                token_list_after_merge = self._merge_tokens(pre_tokens)
-                print(f"Token list after merge: {token_list_after_merge}")
-                token_ids = self._basic_encode(b"".join(token_list_after_merge).decode('utf-8', errors='replace'))
+                pre_tokens_raw = re.findall(PAT, chunk)
+                pre_tokens = [pre_token.encode('utf-8') for pre_token in pre_tokens_raw]
+                # print(f"Pre tokens: {pre_tokens}")
+                def lookup_token_or_bytes(token_bytes):
+                    """Look up a token in vocabulary, or break into individual bytes if not found."""
+                    if token_bytes in self.reverse_vocab:
+                        return [self.reverse_vocab[token_bytes]]
+                    else:
+                        # If not found, break into individual bytes
+                        return [self.reverse_vocab[bytes([b])] for b in token_bytes]
+                
+                def token_to_ids(token_bytes):
+                    """Convert a byte token to a list of token IDs, handling BPE merging if needed."""
+                    # First try direct lookup
+                    direct_result = lookup_token_or_bytes(token_bytes)
+                    if len(direct_result) == 1:
+                        return direct_result
+                    
+                    # If we got multiple bytes, apply BPE merging
+                    byte_list = [bytes([b]) for b in token_bytes]
+                    merged_token_list = self._merge_pre_token(byte_list)
+                    
+                    # Convert merged_token_list byte sequences to token IDs
+                    token_ids = []
+                    for merged_token in merged_token_list:
+                        token_ids.extend(lookup_token_or_bytes(merged_token))
+                    return token_ids
+                
+                # Process all pre-tokens
+                token_ids = []
+                for pre_token in pre_tokens:
+                    token_ids.extend(token_to_ids(pre_token))
                 full_text_after_encoding.extend(token_ids)
         return full_text_after_encoding
                 
