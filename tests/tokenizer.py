@@ -115,7 +115,7 @@ class Tokenizer(object):
             if merged_bytes in self.reverse_vocab:
                 new_id = self.reverse_vocab[merged_bytes]
                 # Replace the pair with the merged token
-                token_ids[best_pos:best_pos + 2] = [new_id] # LEARNING: replace the pair with the merged token by slicing the list
+                token_ids = token_ids[:best_pos] + [new_id] + token_ids[best_pos + 2:]
         
         return token_ids
 

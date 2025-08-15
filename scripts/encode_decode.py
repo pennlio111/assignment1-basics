@@ -1,6 +1,5 @@
 import argparse
-from tests.tokenizer import Tokenizer
-from tests.common import FIXTURES_PATH, gpt2_bytes_to_unicode
+from tests.common import FIXTURES_PATH
 from tests.test_tokenizer import get_tokenizer_from_vocab_merges_path
 
 VOCAB_PATH = FIXTURES_PATH / "gpt2_vocab.json"
