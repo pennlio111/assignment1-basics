@@ -78,28 +78,26 @@ class Tokenizer(object):
         
         Returns:
             list[int]: A list of merged token IDs.
-
-        LEARNING:
-        1. reference implementation: https://github.com/WangYuHang-cmd/CS336/tree/main
         """
+        # Pre-compute merge lookup table for O(1) access
+        if not hasattr(self, '_merge_ranks'):
+            self._merge_ranks = {merge: rank for rank, merge in enumerate(self.merges)}
+        
+        # Pre-compute byte sequences to avoid repeated lookups
+        byte_sequences = [self.vocab[tid] for tid in token_ids]
+        
         while True:
             best_rank = float('inf')
             best_pos = -1
             
             # Find the pair with lowest rank (highest priority) in the merges
-            for i in range(len(token_ids) - 1):
-                byte1 = self.vocab[token_ids[i]]
-                byte2 = self.vocab[token_ids[i + 1]]
-                pair = (byte1, byte2)
+            for i in range(len(byte_sequences) - 1):
+                pair = (byte_sequences[i], byte_sequences[i + 1])
                 
-                # Find the rank of this pair in merges
-                rank = -1
-                for j, merge in enumerate(self.merges):
-                    if merge == pair:
-                        rank = j # record the current rank of the matched pair
-                        break
+                # O(1) lookup instead of O(n) search
+                rank = self._merge_ranks.get(pair, -1)
                 
-                if rank != -1 and rank < best_rank: # if the current matched pair has a lower rank, update the best rank and position
+                if rank != -1 and rank < best_rank:
                     best_rank = rank
                     best_pos = i
             
@@ -107,15 +105,24 @@ class Tokenizer(object):
                 break  # No more merges possible
             
             # Merge the best pair
-            byte1 = self.vocab[token_ids[best_pos]]
-            byte2 = self.vocab[token_ids[best_pos + 1]]
-            merged_bytes = byte1 + byte2
+            merged_bytes = byte_sequences[best_pos] + byte_sequences[best_pos + 1]
             
             # Find the token ID for the merged bytes
             if merged_bytes in self.reverse_vocab:
                 new_id = self.reverse_vocab[merged_bytes]
-                # Replace the pair with the merged token
-                token_ids = token_ids[:best_pos] + [new_id] + token_ids[best_pos + 2:]
+                new_byte_sequence = self.vocab[new_id]
+                
+                # Update byte sequences efficiently
+                byte_sequences[best_pos] = new_byte_sequence
+                byte_sequences.pop(best_pos + 1)
+                
+                # Update token IDs efficiently
+                token_ids[best_pos] = new_id
+                token_ids.pop(best_pos + 1)
+            else:
+                # If merged token not in vocab, mark this pair as unmergeable
+                # by setting a very high rank to avoid checking it again
+                self._merge_ranks[(byte_sequences[best_pos], byte_sequences[best_pos + 1])] = float('inf')
         
         return token_ids
 
