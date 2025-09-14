@@ -4,6 +4,7 @@ import os
 import regex as re
 
 from collections import defaultdict
+from code.linear import Linear
 from typing import IO, Any, BinaryIO
 from collections.abc import Iterable
 from jaxtyping import Float, Int
@@ -34,8 +35,10 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
-
-    raise NotImplementedError
+    linear_layer = Linear(in_features=d_in, out_features=d_out, device=weights.device, dtype=weights.dtype)
+    # Manually set the weights
+    linear_layer.weight.data = weights
+    return linear_layer.forward(in_features)
 
 
 def run_embedding(
