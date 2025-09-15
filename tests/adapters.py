@@ -4,7 +4,7 @@ import os
 import regex as re
 
 from collections import defaultdict
-from code.linear import Linear
+from code.transformer import Embedding, Linear
 from typing import IO, Any, BinaryIO
 from collections.abc import Iterable
 from jaxtyping import Float, Int
@@ -60,7 +60,9 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    raise NotImplementedError
+    embedding_layer = Embedding(num_embeddings=vocab_size, embedding_dim=d_model, device=weights.device, dtype=weights.dtype)
+    embedding_layer.weight.data = weights
+    return embedding_layer.forward(token_ids)
 
 
 def run_swiglu(
