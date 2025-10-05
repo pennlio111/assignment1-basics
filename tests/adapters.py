@@ -4,7 +4,8 @@ import os
 import regex as re
 
 from collections import defaultdict
-from code.transformer import Embedding, Linear
+from code.modules.transformer import Embedding, Linear
+from code.modules.rms_norm import RMSNorm
 from typing import IO, Any, BinaryIO
 from collections.abc import Iterable
 from jaxtyping import Float, Int
@@ -389,7 +390,9 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    rmsnorm_layer = RMSNorm(d_model=d_model, eps=eps, device=weights.device, dtype=weights.dtype)
+    return rmsnorm_layer.forward(in_features)*weights # no matter the weight is in front or behind, the result is the same
+
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:

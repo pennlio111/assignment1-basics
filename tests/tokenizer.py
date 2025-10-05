@@ -67,7 +67,7 @@ class Tokenizer(object):
             pattern = f"({'|'.join(map(re.escape, sorted_special_tokens))})"
             # Split while preserving the tokens as separate elements
             parts = re.split(pattern, text)
-            return [part for part in parts if part]  # Remove empty strings    
+            return [part for part in parts if part]  # Remove empty strings   
     
     
     def _merge_bpe(self, token_ids: list[int]) -> list[int]:
